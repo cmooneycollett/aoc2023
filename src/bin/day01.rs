@@ -2,10 +2,10 @@ use std::fs;
 use std::time::Instant;
 
 const PROBLEM_NAME: &str = "###";
-const PROBLEM_INPUT_FILE: &str = "./input/day00.txt";
-const PROBLEM_DAY: u64 = 0;
+const PROBLEM_INPUT_FILE: &str = "./input/day01.txt";
+const PROBLEM_DAY: u64 = 1;
 
-/// Processes the AOC 2023 Day 00 input file and solves both parts of the problem. Solutions are
+/// Processes the AOC 2023 Day 01 input file and solves both parts of the problem. Solutions are
 /// printed to stdout.
 pub fn main() {
     let start = Instant::now();
@@ -38,7 +38,7 @@ pub fn main() {
     println!("==================================================");
 }
 
-/// Processes the AOC 2023 Day 00 input file in the format required by the solver functions.
+/// Processes the AOC 2023 Day 01 input file in the format required by the solver functions.
 /// 
 /// Returned value is ###.
 fn process_input_file(filename: &str) -> String {
@@ -48,14 +48,14 @@ fn process_input_file(filename: &str) -> String {
     unimplemented!();
 }
 
-/// Solves AOC 2023 Day 00 Part 1.
+/// Solves AOC 2023 Day 01 Part 1.
 /// 
 /// ###
 fn solve_part1(_input: &String) -> String {
     unimplemented!();
 }
 
-/// Solves AOC 2023 Day 00 Part 2.
+/// Solves AOC 2023 Day 01 Part 2.
 /// 
 /// ###
 fn solve_part2(_input: &String) -> String {
@@ -66,18 +66,18 @@ fn solve_part2(_input: &String) -> String {
 mod test {
     use super::*;
 
-    /// Tests the Day 00 Part 1 solver method against the actual problem solution.
+    /// Tests the Day 01 Part 1 solver method against the actual problem solution.
     #[test]
-    fn test_day00_part1_actual() {
+    fn test_day01_part1_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
         let _solution = solve_part1(&input);
         unimplemented!();
         // assert_eq!("###", solution);
     }
 
-    /// Tests the Day 00 Part 2 solver method against the actual problem solution.
+    /// Tests the Day 01 Part 2 solver method against the actual problem solution.
     #[test]
-    fn test_day00_part2_actual() {
+    fn test_day01_part2_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
         let _solution = solve_part2(&input);
         unimplemented!();
