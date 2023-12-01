@@ -1,7 +1,7 @@
 use std::fs;
 use std::time::Instant;
 
-const PROBLEM_NAME: &str = "###";
+const PROBLEM_NAME: &str = "Trebuchet?!";
 const PROBLEM_INPUT_FILE: &str = "./input/day01.txt";
 const PROBLEM_DAY: u64 = 1;
 
