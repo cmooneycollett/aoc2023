@@ -9,9 +9,12 @@ const PROBLEM_NAME: &str = "Cube Conundrum";
 const PROBLEM_INPUT_FILE: &str = "./input/day02.txt";
 const PROBLEM_DAY: u64 = 2;
 
-const PART1_MAX_RED: u64 = 12;
-const PART1_MAX_GREEN: u64 = 13;
-const PART1_MAX_BLUE: u64 = 14;
+/// Maximum number of red cubes allowed across a game in Part 1.
+const P1_MAX_RED: u64 = 12;
+/// Maximum number of green cubes allowed across a game in Part 1.
+const P1_MAX_GREEN: u64 = 13;
+/// Maximum number of blue cubes allowed across a game in Part 1.
+const P1_MAX_BLUE: u64 = 14;
 
 lazy_static! {
     static ref REGEX_GAME: Regex = Regex::new(r"^Game (\d+): (.*)$").unwrap();
@@ -77,9 +80,10 @@ fn process_input_file(filename: &str) -> HashMap<u64, Vec<CubeGroup>> {
 fn convert_line_to_game(s: &str) -> Option<(u64, Vec<CubeGroup>)> {
     // Game match
     if let Ok(Some(game_match)) = REGEX_GAME.captures(s) {
-        // Extract cube groups
+        // Extract game ID and split groups into strings
         let game_id = game_match[1].parse::<u64>().unwrap();
         let group_strings = game_match[2].split("; ").collect::<Vec<&str>>();
+        // Extract each cube group
         let mut cube_groups: Vec<CubeGroup> = vec![];
         for s in group_strings {
             let group = convert_group_string_to_cube_group(s);
@@ -127,19 +131,28 @@ fn convert_group_string_to_cube_group(s: &str) -> CubeGroup {
 fn solve_part1(games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
     games
         .iter()
-        .filter(|&(_id, groups)| check_game(groups, PART1_MAX_RED, PART1_MAX_GREEN, PART1_MAX_BLUE))
+        .filter(|&(_id, groups)| check_game(groups, P1_MAX_RED, P1_MAX_GREEN, P1_MAX_BLUE))
         .map(|(id, _groups)| id)
         .sum()
 }
 
 /// Solves AOC 2023 Day 02 Part 2.
 ///
-/// ###
-fn solve_part2(_games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
-    0
+/// Determines the sum of the power for each game.
+///
+/// The power of a game is calculated by finding the product of the minimum number of red, blue and
+/// green cubes that would be required to make the game possible.
+fn solve_part2(games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
+    games
+        .iter()
+        .map(|(_id, groups)| calculate_game_power(groups))
+        .sum()
 }
 
-/// Checks if the cube groups represent a valid game.
+/// Checks if the cube groups represent a possible game.
+///
+/// A game is possible if the number of any given cube colour in a group does not exceed the maximum
+/// value for that colour.
 fn check_game(cube_groups: &[CubeGroup], max_red: u64, max_green: u64, max_blue: u64) -> bool {
     for group in cube_groups {
         if group.red > max_red || group.green > max_green || group.blue > max_blue {
@@ -147,6 +160,31 @@ fn check_game(cube_groups: &[CubeGroup], max_red: u64, max_green: u64, max_blue:
         }
     }
     true
+}
+
+/// Calculates the power of the game with the given cube groups.
+///
+/// The power is calculated by finding the product of the minimum number of red, blue and green
+/// cubes that would be required to make the game possible.
+fn calculate_game_power(cube_groups: &[CubeGroup]) -> u64 {
+    let mut max_red = 0;
+    let mut max_blue = 0;
+    let mut max_green = 0;
+    for group in cube_groups {
+        // Check red for new max
+        if group.red > max_red {
+            max_red = group.red;
+        }
+        // Check blue for new max
+        if group.blue > max_blue {
+            max_blue = group.blue;
+        }
+        // Check green for new max
+        if group.green > max_green {
+            max_green = group.green;
+        }
+    }
+    max_red * max_blue * max_green
 }
 
 #[cfg(test)]
@@ -165,8 +203,7 @@ mod test {
     #[test]
     fn test_day02_part2_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
-        let _solution = solve_part2(&input);
-        unimplemented!();
-        // assert_eq!("###", solution);
+        let solution = solve_part2(&input);
+        assert_eq!(83435, solution);
     }
 }
