@@ -17,17 +17,39 @@ const P1_MAX_GREEN: u64 = 13;
 const P1_MAX_BLUE: u64 = 14;
 
 lazy_static! {
-    static ref REGEX_GAME: Regex = Regex::new(r"^Game (\d+): (.*)$").unwrap();
+    static ref REGEX_GAME: Regex = Regex::new(r"^Game (\d+)").unwrap();
     static ref REGEX_RED: Regex = Regex::new(r"(\d+) red").unwrap();
     static ref REGEX_BLUE: Regex = Regex::new(r"(\d+) blue").unwrap();
     static ref REGEX_GREEN: Regex = Regex::new(r"(\d+) green").unwrap();
 }
 
-/// Represents the number of each colour of cube contained within a group.
-struct CubeGroup {
+/// Represents the maximum number of red, blue and green cubes recorded across all groups for an
+/// individual game.
+struct GameCubeMax {
     red: u64,
     blue: u64,
     green: u64,
+}
+
+impl GameCubeMax {
+    /// Creates a new [`GameCubeMax`] with the given cube numbers.
+    fn new(red: u64, blue: u64, green: u64) -> Self {
+        Self { red, blue, green }
+    }
+
+    /// Checks if the cube groups represent a possible game.
+    ///
+    /// A game is possible if the number of any given cube colour in a group does not exceed the
+    /// maximum value for that colour.
+    fn check_game(&self, max_red: u64, max_blue: u64, max_green: u64) -> bool {
+        self.red <= max_red && self.blue <= max_blue && self.green <= max_green
+    }
+
+    /// Calculates the power of the game as a product of the maximum number of red, blue and green
+    /// cubes.
+    fn calculate_game_power(&self) -> u64 {
+        self.red * self.blue * self.green
+    }
 }
 
 /// Processes the AOC 2023 Day 02 input file and solves both parts of the problem. Solutions are
@@ -66,73 +88,53 @@ pub fn main() {
 /// Processes the AOC 2023 Day 02 input file in the format required by the solver functions.
 ///
 /// Returned value is HashMap mapping each game ID to its vector of cube groups.
-fn process_input_file(filename: &str) -> HashMap<u64, Vec<CubeGroup>> {
+fn process_input_file(filename: &str) -> HashMap<u64, GameCubeMax> {
     // Read contents of problem input file
     let raw_input = fs::read_to_string(filename).unwrap();
     // Process input file contents into data structure
     raw_input
         .lines()
         .filter_map(convert_line_to_game)
-        .collect::<HashMap<u64, Vec<CubeGroup>>>()
+        .collect::<HashMap<u64, GameCubeMax>>()
 }
 
 /// Converts an input file line into tuple containing the game ID and vector of its cube groups.
-fn convert_line_to_game(s: &str) -> Option<(u64, Vec<CubeGroup>)> {
+fn convert_line_to_game(s: &str) -> Option<(u64, GameCubeMax)> {
     // Game match
     if let Ok(Some(game_match)) = REGEX_GAME.captures(s) {
-        // Extract game ID and split groups into strings
+        // Extract game ID
         let game_id = game_match[1].parse::<u64>().unwrap();
-        let group_strings = game_match[2].split("; ").collect::<Vec<&str>>();
-        // Extract each cube group
-        let mut cube_groups: Vec<CubeGroup> = vec![];
-        for s in group_strings {
-            let group = convert_group_string_to_cube_group(s);
-            cube_groups.push(group);
-        }
-        return Some((game_id, cube_groups));
+        // Find max number of red, blue and green cubes
+        let max_red = REGEX_RED
+            .captures_iter(s)
+            .map(|cap| cap.unwrap()[1].parse::<u64>().unwrap())
+            .max()
+            .unwrap_or(0);
+        let max_blue = REGEX_BLUE
+            .captures_iter(s)
+            .map(|cap| cap.unwrap()[1].parse::<u64>().unwrap())
+            .max()
+            .unwrap_or(0);
+        let max_green = REGEX_GREEN
+            .captures_iter(s)
+            .map(|cap| cap.unwrap()[1].parse::<u64>().unwrap())
+            .max()
+            .unwrap_or(0);
+        let cube_max = GameCubeMax::new(max_red, max_blue, max_green);
+        return Some((game_id, cube_max));
     }
     None
-}
-
-/// Extracts the cube group from the given game string.
-fn convert_group_string_to_cube_group(s: &str) -> CubeGroup {
-    // Red
-    let red = {
-        if let Ok(Some(cap)) = REGEX_RED.captures(s) {
-            cap[1].parse::<u64>().unwrap()
-        } else {
-            0
-        }
-    };
-    // Blue
-    let blue = {
-        if let Ok(Some(cap)) = REGEX_BLUE.captures(s) {
-            cap[1].parse::<u64>().unwrap()
-        } else {
-            0
-        }
-    };
-    // Green
-    let green = {
-        if let Ok(Some(cap)) = REGEX_GREEN.captures(s) {
-            cap[1].parse::<u64>().unwrap()
-        } else {
-            0
-        }
-    };
-    // Create new cube group
-    CubeGroup { red, blue, green }
 }
 
 /// Solves AOC 2023 Day 02 Part 1.
 ///
 /// Determines the sum of the game IDs for the games that are possible, given a bag containing 12
 /// red, 13 green and 14 blue cubes.
-fn solve_part1(games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
+fn solve_part1(games: &HashMap<u64, GameCubeMax>) -> u64 {
     games
         .iter()
-        .filter(|&(_id, groups)| check_game(groups, P1_MAX_RED, P1_MAX_GREEN, P1_MAX_BLUE))
-        .map(|(id, _groups)| id)
+        .filter(|&(_, cube_max)| cube_max.check_game(P1_MAX_RED, P1_MAX_BLUE, P1_MAX_GREEN))
+        .map(|(id, _)| id)
         .sum()
 }
 
@@ -142,49 +144,11 @@ fn solve_part1(games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
 ///
 /// The power of a game is calculated by finding the product of the minimum number of red, blue and
 /// green cubes that would be required to make the game possible.
-fn solve_part2(games: &HashMap<u64, Vec<CubeGroup>>) -> u64 {
+fn solve_part2(games: &HashMap<u64, GameCubeMax>) -> u64 {
     games
         .iter()
-        .map(|(_id, groups)| calculate_game_power(groups))
+        .map(|(_, cube_max)| cube_max.calculate_game_power())
         .sum()
-}
-
-/// Checks if the cube groups represent a possible game.
-///
-/// A game is possible if the number of any given cube colour in a group does not exceed the maximum
-/// value for that colour.
-fn check_game(cube_groups: &[CubeGroup], max_red: u64, max_green: u64, max_blue: u64) -> bool {
-    for group in cube_groups {
-        if group.red > max_red || group.green > max_green || group.blue > max_blue {
-            return false;
-        }
-    }
-    true
-}
-
-/// Calculates the power of the game with the given cube groups.
-///
-/// The power is calculated by finding the product of the minimum number of red, blue and green
-/// cubes that would be required to make the game possible.
-fn calculate_game_power(cube_groups: &[CubeGroup]) -> u64 {
-    let mut max_red = 0;
-    let mut max_blue = 0;
-    let mut max_green = 0;
-    for group in cube_groups {
-        // Check red for new max
-        if group.red > max_red {
-            max_red = group.red;
-        }
-        // Check blue for new max
-        if group.blue > max_blue {
-            max_blue = group.blue;
-        }
-        // Check green for new max
-        if group.green > max_green {
-            max_green = group.green;
-        }
-    }
-    max_red * max_blue * max_green
 }
 
 #[cfg(test)]
