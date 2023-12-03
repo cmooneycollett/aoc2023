@@ -12,9 +12,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aoc-utils"
+version = "0.1.0"
+source = "git+https://github.com/cmooneycollett/aoc-utils?branch=main#6f2f31e5007b4531f1e151193d2635bbdced72e7"
+
+[[package]]
 name = "aoc2023"
 version = "0.1.0"
 dependencies = [
+ "aoc-utils",
  "fancy-regex",
  "lazy_static",
 ]
