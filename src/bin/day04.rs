@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::time::Instant;
 
@@ -10,7 +10,7 @@ const PROBLEM_INPUT_FILE: &str = "./input/day04.txt";
 const PROBLEM_DAY: u64 = 4;
 
 lazy_static! {
-    static ref REGEX_CARD: Regex = Regex::new(r": (.*) \| (.*)$").unwrap();
+    static ref REGEX_CARD: Regex = Regex::new(r"(\d+): (.*) \| (.*)$").unwrap();
 }
 
 /// Processes the AOC 2023 Day 04 input file and solves both parts of the problem. Solutions are
@@ -50,22 +50,24 @@ pub fn main() {
 ///
 /// Returned value is HashMap mapping card number to tuple of its winning numbers set and game
 /// numbers set.
-fn process_input_file(filename: &str) -> Vec<(HashSet<u64>, HashSet<u64>)> {
+fn process_input_file(filename: &str) -> HashMap<usize, usize> {
     // Read contents of problem input file
     let raw_input = fs::read_to_string(filename).unwrap();
     // Process input file contents into data structure
     raw_input
         .lines()
         .filter_map(parse_input_file_line)
-        .collect::<Vec<(HashSet<u64>, HashSet<u64>)>>()
+        .collect::<HashMap<usize, usize>>()
 }
 
 /// Parses a line from the input file into the format required for collection into a HashMap.
-fn parse_input_file_line(s: &str) -> Option<(HashSet<u64>, HashSet<u64>)> {
+fn parse_input_file_line(s: &str) -> Option<(usize, usize)> {
     if let Ok(Some(caps)) = REGEX_CARD.captures(s) {
-        let winning_nums = parse_number_set(&caps[1]);
-        let game_nums = parse_number_set(&caps[2]);
-        return Some((winning_nums, game_nums));
+        let card_num = caps[1].parse::<usize>().unwrap();
+        let winning_nums = parse_number_set(&caps[2]);
+        let game_nums = parse_number_set(&caps[3]);
+        let num_overlaps = winning_nums.intersection(&game_nums).count();
+        return Some((card_num, num_overlaps));
     }
     None
 }
@@ -82,29 +84,46 @@ fn parse_number_set(s: &str) -> HashSet<u64> {
 /// Solves AOC 2023 Day 04 Part 1.
 ///
 /// Calculates the total number of points all cards are worth.
-fn solve_part1(cards: &[(HashSet<u64>, HashSet<u64>)]) -> u64 {
+fn solve_part1(cards: &HashMap<usize, usize>) -> u64 {
     cards
         .iter()
-        .map(|(winning_nums, game_nums)| calculate_card_points(winning_nums, game_nums))
+        .map(|(_, &num_overlaps)| calculate_card_points(num_overlaps))
         .sum()
 }
 
 /// Solves AOC 2023 Day 04 Part 2.
 ///
-/// ###
-fn solve_part2(_input: &[(HashSet<u64>, HashSet<u64>)]) -> u64 {
-    0
+/// Calculates the total number of scratchcards after checking all original and copied cards.
+fn solve_part2(cards: &HashMap<usize, usize>) -> u64 {
+    // Load the original cards into the queue
+    let mut cards_queue = VecDeque::from_iter(cards.keys().copied());
+    // Get the biggest card number to so the end of card table is known
+    let card_num_max = *cards.keys().max().unwrap();
+    let mut cards_checked = 0;
+    while !cards_queue.is_empty() {
+        cards_checked += 1;
+        let card_num = cards_queue.pop_front().unwrap();
+        // Add copied cards to the end of the queue - but not beyond end of the card table (no wrap)
+        let num_overlaps = *cards.get(&card_num).unwrap();
+        for i in 1..=num_overlaps {
+            let copied_card_id = card_num + i;
+            if copied_card_id > card_num_max {
+                break;
+            }
+            cards_queue.push_back(copied_card_id);
+        }
+    }
+    cards_checked
 }
 
 /// Calculates the number of points that the card is worth, based on how many of its game numbers
 /// are winning numbers. The points total is calculated as 2^(n-1), where n is the number of
 /// overlapping numbers.
-fn calculate_card_points(winning_nums: &HashSet<u64>, game_nums: &HashSet<u64>) -> u64 {
-    let num_overlap = u32::try_from(winning_nums.intersection(game_nums).count()).unwrap();
-    if num_overlap == 0 {
+fn calculate_card_points(num_overlaps: usize) -> u64 {
+    if num_overlaps == 0 {
         return 0;
     }
-    2u64.pow(num_overlap - 1)
+    2u64.pow(u32::try_from(num_overlaps).unwrap() - 1)
 }
 
 #[cfg(test)]
@@ -123,8 +142,7 @@ mod test {
     #[test]
     fn test_day04_part2_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
-        let _solution = solve_part2(&input);
-        unimplemented!();
-        // assert_eq!("###", solution);
+        let solution = solve_part2(&input);
+        assert_eq!(7185540, solution);
     }
 }
