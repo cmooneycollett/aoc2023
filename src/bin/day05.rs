@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 
 const PROBLEM_NAME: &str = "If You Give A Seed A Fertilizer";
 const PROBLEM_INPUT_FILE: &str = "./input/day05.txt";
+// const PROBLEM_INPUT_FILE: &str = "./input/test/day05_01.txt";
 const PROBLEM_DAY: u64 = 5;
 
 lazy_static! {
@@ -43,14 +44,54 @@ impl RangeMap {
     ///
     /// Returns None if the given value does not fall within a source range for any of the range
     /// mappings.
-    fn map_source_value_to_destination(&self, value: usize) -> Option<usize> {
+    fn map_source_value_to_destination(&self, value: usize) -> usize {
         for (dest_range, source_range) in self.range_mappings.iter() {
             if source_range.contains(&value) {
                 let delta = value - source_range.start();
-                return Some(dest_range.start() + delta);
+                return dest_range.start() + delta;
             }
         }
-        None
+        value
+    }
+
+    fn map_source_range_to_destination_range(
+        &self,
+        input_range: &RangeInclusive<usize>,
+    ) -> Vec<RangeInclusive<usize>> {
+        let mut range_overlaps: Vec<RangeInclusive<usize>> = vec![];
+        for (dest_range, source_range) in self.range_mappings.iter() {
+            // Check if source and input ranges do not overlap
+            if input_range.end() < source_range.start() || input_range.start() > source_range.end()
+            {
+                continue;
+            }
+            // Calculate start and end of the overlap
+            let overlap_start = input_range.start().max(source_range.start());
+            let overlap_end = input_range.end().min(source_range.end());
+            // Determine the mapped destination range
+            let delta = overlap_start - source_range.start();
+            let length = overlap_end - overlap_start;
+            let dest_start = dest_range.start() + delta;
+            let dest_end = dest_start + length;
+            range_overlaps.push(dest_start..=dest_end);
+            // Determine the parts of the input range that are not mapped
+            if input_range.start() < source_range.start() {
+                let left_start = *input_range.start();
+                let left_end = *source_range.start() - 1;
+                range_overlaps.push(left_start..=left_end);
+            }
+            if input_range.end() > source_range.end() {
+                let right_start = *source_range.end() + 1;
+                let right_end = *input_range.end();
+                range_overlaps.push(right_start..=right_end);
+            }
+            break;
+        }
+        // Input range mapped at destination if the input range is not covered by range map
+        if range_overlaps.is_empty() {
+            range_overlaps.push(input_range.clone());
+        }
+        range_overlaps
     }
 }
 
@@ -90,11 +131,11 @@ pub fn main() {
 /// Processes the AOC 2023 Day 05 input file in the format required by the solver functions.
 ///
 /// Returned value is tuple containing seed values and range maps given in the input file.
-fn process_input_file(filename: &str) -> (Vec<usize>, Vec<RangeMap>) {
+fn process_input_file(filename: &str) -> (Vec<RangeInclusive<usize>>, Vec<RangeMap>) {
     // Read contents of problem input file
     let raw_input = fs::read_to_string(filename).unwrap();
     // Extract seed values
-    let seeds = REGEX_SEEDS
+    let seed_values = REGEX_SEEDS
         .captures(&raw_input)
         .unwrap()
         .unwrap()
@@ -104,29 +145,37 @@ fn process_input_file(filename: &str) -> (Vec<usize>, Vec<RangeMap>) {
         .split(' ')
         .map(|s| s.parse::<usize>().unwrap())
         .collect::<Vec<usize>>();
+    let mut seed_ranges: Vec<RangeInclusive<usize>> = vec![];
+    for i in (0..seed_values.len()).step_by(2) {
+        let start = seed_values[i];
+        let length = seed_values[i + 1];
+        seed_ranges.push(start..=(start + length - 1));
+    }
     // Extract range mappings
     let range_maps = raw_input
         .split("map:")
         .skip(1)
         .map(RangeMap::new)
         .collect::<Vec<RangeMap>>();
-    (seeds, range_maps)
+    (seed_ranges, range_maps)
 }
 
 /// Solves AOC 2023 Day 05 Part 1.
 ///
 /// Determines the lowest location value corresponding to an initial seed value.
-fn solve_part1(input: &(Vec<usize>, Vec<RangeMap>)) -> usize {
-    let (seeds, range_maps) = input;
+fn solve_part1(input: &(Vec<RangeInclusive<usize>>, Vec<RangeMap>)) -> usize {
+    let (seed_ranges, range_maps) = input;
+    // Extract the seed values from ranges used in Part 2
+    let seeds = seed_ranges
+        .iter()
+        .flat_map(|range| [*range.start(), *range.end() - *range.start() + 1])
+        .collect::<Vec<usize>>();
     let mut lowest_location: Option<usize> = None;
-    'outer: for &seed in seeds {
+    for seed in seeds {
         let mut value = seed;
+        // Map the seed value through to its location value
         for range_map in range_maps {
-            if let Some(dest_value) = range_map.map_source_value_to_destination(value) {
-                value = dest_value;
-            } else {
-                continue 'outer;
-            }
+            value = range_map.map_source_value_to_destination(value);
         }
         if lowest_location.is_none() || lowest_location.unwrap() > value {
             lowest_location = Some(value);
@@ -137,9 +186,31 @@ fn solve_part1(input: &(Vec<usize>, Vec<RangeMap>)) -> usize {
 
 /// Solves AOC 2023 Day 05 Part 2.
 ///
-/// ###
-fn solve_part2(_input: &(Vec<usize>, Vec<RangeMap>)) -> usize {
-    0
+/// Determines the lowest location value corresponding to an initial seed value, where the input
+/// seed value line is treated as specifying ranges of values.
+fn solve_part2(input: &(Vec<RangeInclusive<usize>>, Vec<RangeMap>)) -> usize {
+    let (seed_ranges, range_maps) = input;
+    let mut lowest_location: Option<usize> = None;
+    for seed_range in seed_ranges {
+        // Map the seed value range through to range/s of location values
+        let mut dest_ranges = vec![seed_range.clone()];
+        for range_map in range_maps {
+            // Get all of the ranges that the current ranges mapped to in the current range map
+            let mut new_ranges: Vec<RangeInclusive<usize>> = vec![];
+            for range in dest_ranges {
+                let output = range_map.map_source_range_to_destination_range(&range);
+                new_ranges.extend(output);
+            }
+            dest_ranges = new_ranges;
+        }
+        // Calculate the lowest location value for the starting seed value range
+        let run_lowest_location = *dest_ranges.iter().map(|range| range.start()).min().unwrap();
+        // Check if a new lowest location value has been found
+        if lowest_location.is_none() || lowest_location.unwrap() > run_lowest_location {
+            lowest_location = Some(run_lowest_location);
+        }
+    }
+    lowest_location.unwrap()
 }
 
 #[cfg(test)]
@@ -158,8 +229,23 @@ mod test {
     #[test]
     fn test_day05_part2_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
-        let _solution = solve_part2(&input);
-        unimplemented!();
-        // assert_eq!("###", solution);
+        let solution = solve_part2(&input);
+        assert_eq!(52210644, solution);
+    }
+
+    /// Tests the Day 05 Part 1 solver method against the 01 test input.
+    #[test]
+    fn test_day05_part1_ex01() {
+        let input = process_input_file("./input/test/day05_01.txt");
+        let solution = solve_part1(&input);
+        assert_eq!(35, solution);
+    }
+
+    /// Tests the Day 05 Part 2 solver method against the 01 test input.
+    #[test]
+    fn test_day05_part2_ex01() {
+        let input = process_input_file("./input/test/day05_01.txt");
+        let solution = solve_part2(&input);
+        assert_eq!(46, solution);
     }
 }
