@@ -7,11 +7,12 @@ use lazy_static::lazy_static;
 
 const PROBLEM_NAME: &str = "If You Give A Seed A Fertilizer";
 const PROBLEM_INPUT_FILE: &str = "./input/day05.txt";
-// const PROBLEM_INPUT_FILE: &str = "./input/test/day05_01.txt";
 const PROBLEM_DAY: u64 = 5;
 
 lazy_static! {
+    /// Matches space-separated seed value capture group from problem input file
     static ref REGEX_SEEDS: Regex = Regex::new(r"(?m)^seeds: (.*)$").unwrap();
+    /// Matches against destination range start, source range start and length from input file maps
     static ref REGEX_MAP_LINE: Regex = Regex::new(r"^(\d+) (\d+) (\d+)$").unwrap();
 }
 
@@ -44,22 +45,27 @@ impl RangeMap {
     ///
     /// Returns None if the given value does not fall within a source range for any of the range
     /// mappings.
-    fn map_source_value_to_destination(&self, value: usize) -> usize {
-        for (dest_range, source_range) in self.range_mappings.iter() {
-            if source_range.contains(&value) {
-                let delta = value - source_range.start();
+    fn map_source_value_to_destination(&self, input_value: usize) -> usize {
+        for (dest_range, source_range) in &self.range_mappings {
+            // Check if the input value is mapped to a destination value
+            if source_range.contains(&input_value) {
+                let delta = input_value - source_range.start();
                 return dest_range.start() + delta;
             }
         }
-        value
+        // Input value was not covered by a range in the RangeMap, so it is returned unchanged
+        input_value
     }
 
+    /// Maps the input range to destination ranges where covered by the source ranges. For the
+    /// components of the input range that are not covered by a source range, they are broken off
+    /// and added to the output vector.
     fn map_source_range_to_destination_range(
         &self,
         input_range: &RangeInclusive<usize>,
     ) -> Vec<RangeInclusive<usize>> {
         let mut range_overlaps: Vec<RangeInclusive<usize>> = vec![];
-        for (dest_range, source_range) in self.range_mappings.iter() {
+        for (dest_range, source_range) in &self.range_mappings {
             // Check if source and input ranges do not overlap
             if input_range.end() < source_range.start() || input_range.start() > source_range.end()
             {
@@ -74,7 +80,7 @@ impl RangeMap {
             let dest_start = dest_range.start() + delta;
             let dest_end = dest_start + length;
             range_overlaps.push(dest_start..=dest_end);
-            // Determine the parts of the input range that are not mapped
+            // Check if parts of the input range have not been mapped - on left and right of input
             if input_range.start() < source_range.start() {
                 let left_start = *input_range.start();
                 let left_end = *source_range.start() - 1;
@@ -134,17 +140,17 @@ pub fn main() {
 fn process_input_file(filename: &str) -> (Vec<RangeInclusive<usize>>, Vec<RangeMap>) {
     // Read contents of problem input file
     let raw_input = fs::read_to_string(filename).unwrap();
-    // Extract seed values
-    let seed_values = REGEX_SEEDS
-        .captures(&raw_input)
-        .unwrap()
-        .unwrap()
-        .get(1)
-        .unwrap()
-        .as_str()
-        .split(' ')
-        .map(|s| s.parse::<usize>().unwrap())
-        .collect::<Vec<usize>>();
+    // Extract seed values - treat as range start and length value pairs
+    let seed_values = {
+        if let Ok(Some(caps)) = REGEX_SEEDS.captures(&raw_input) {
+            caps[1]
+                .split(' ')
+                .map(|s| s.parse::<usize>().unwrap())
+                .collect::<Vec<usize>>()
+        } else {
+            vec![]
+        }
+    };
     let mut seed_ranges: Vec<RangeInclusive<usize>> = vec![];
     for i in (0..seed_values.len()).step_by(2) {
         let start = seed_values[i];
@@ -171,6 +177,7 @@ fn solve_part1(input: &(Vec<RangeInclusive<usize>>, Vec<RangeMap>)) -> usize {
         .flat_map(|range| [*range.start(), *range.end() - *range.start() + 1])
         .collect::<Vec<usize>>();
     let mut lowest_location: Option<usize> = None;
+    // Consider each seed value individually for determining lowest location
     for seed in seeds {
         let mut value = seed;
         // Map the seed value through to its location value
@@ -191,6 +198,7 @@ fn solve_part1(input: &(Vec<RangeInclusive<usize>>, Vec<RangeMap>)) -> usize {
 fn solve_part2(input: &(Vec<RangeInclusive<usize>>, Vec<RangeMap>)) -> usize {
     let (seed_ranges, range_maps) = input;
     let mut lowest_location: Option<usize> = None;
+    // Find the lowest location value for each seed value range, and overall lowest location value
     for seed_range in seed_ranges {
         // Map the seed value range through to range/s of location values
         let mut dest_ranges = vec![seed_range.clone()];
