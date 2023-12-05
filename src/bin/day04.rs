@@ -1,5 +1,6 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::iter;
 use std::time::Instant;
 
 use fancy_regex::Regex;
@@ -10,7 +11,7 @@ const PROBLEM_INPUT_FILE: &str = "./input/day04.txt";
 const PROBLEM_DAY: u64 = 4;
 
 lazy_static! {
-    static ref REGEX_CARD: Regex = Regex::new(r"(\d+): (.*) \| (.*)$").unwrap();
+    static ref REGEX_CARD: Regex = Regex::new(r"^Card\s+(\d+): (.*) \| (.*)$").unwrap();
 }
 
 /// Processes the AOC 2023 Day 04 input file and solves both parts of the problem. Solutions are
@@ -95,25 +96,7 @@ fn solve_part1(cards: &HashMap<usize, usize>) -> u64 {
 ///
 /// Calculates the total number of scratchcards after checking all original and copied cards.
 fn solve_part2(cards: &HashMap<usize, usize>) -> u64 {
-    // Load the original cards into the queue
-    let mut cards_queue = VecDeque::from_iter(cards.keys().copied());
-    // Get the biggest card number to so the end of card table is known
-    let card_num_max = *cards.keys().max().unwrap();
-    let mut cards_checked = 0;
-    while !cards_queue.is_empty() {
-        cards_checked += 1;
-        let card_num = cards_queue.pop_front().unwrap();
-        // Add copied cards to the end of the queue - but not beyond end of the card table (no wrap)
-        let num_overlaps = *cards.get(&card_num).unwrap();
-        for i in 1..=num_overlaps {
-            let copied_card_id = card_num + i;
-            if copied_card_id > card_num_max {
-                break;
-            }
-            cards_queue.push_back(copied_card_id);
-        }
-    }
-    cards_checked
+    calculate_total_cards_processed(cards)
 }
 
 /// Calculates the number of points that the card is worth, based on how many of its game numbers
@@ -124,6 +107,26 @@ fn calculate_card_points(num_overlaps: usize) -> u64 {
         return 0;
     }
     2u64.pow(u32::try_from(num_overlaps).unwrap() - 1)
+}
+
+/// Calculates the total number of scratchcards processed, including all original and copied cards.
+fn calculate_total_cards_processed(cards: &HashMap<usize, usize>) -> u64 {
+    let mut cards_processed = 0;
+    let mut card_counts: Vec<u64> = iter::repeat(1).take(cards.len()).collect::<Vec<u64>>();
+    for n in 0..cards.len() {
+        // Count the copies of the current card
+        cards_processed += card_counts[n];
+        let card_id = n + 1;
+        let winning_nums = *cards.get(&card_id).unwrap();
+        // Generate a copy of the following cards for each copy of current card
+        for delta in 1..=winning_nums {
+            if n + delta >= card_counts.len() {
+                break;
+            }
+            card_counts[n + delta] += card_counts[n];
+        }
+    }
+    cards_processed
 }
 
 #[cfg(test)]
