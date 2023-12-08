@@ -72,27 +72,46 @@ fn solve_part1((times, distances): &(Vec<u64>, Vec<u64>)) -> usize {
         .product()
 }
 
+/// Solves AOC 2023 Day 06 Part 2.
+///
+/// Calculates the number of ways to beat the best distance for the race, with the times and
+/// distances combined into a single value (digits combined left to right and parsed as a single
+/// integer).
+fn solve_part2((times, distances): &(Vec<u64>, Vec<u64>)) -> usize {
+    let t_race = times
+        .iter()
+        .map(|t| t.to_string())
+        .collect::<String>()
+        .parse::<u64>()
+        .unwrap();
+    let d_best = distances
+        .iter()
+        .map(|d| d.to_string())
+        .collect::<String>()
+        .parse::<u64>()
+        .unwrap();
+    calculate_num_ways_to_beat_best_distance(t_race, d_best)
+}
+
 /// Calculates the number of ways to beat the best distance for a race of the specified duration (in
 /// milliseconds).
 fn calculate_num_ways_to_beat_best_distance(t_race: u64, d_best: u64) -> usize {
     let mut count = 0;
     // Consider each possible way of attempting the race - charging boat for different periods
+    let mut winning_way_found = false;
     for t_charge in 0..=t_race {
         // Calculate the time that boat has to run and how far it will run before end of race
         let t_run = t_race - t_charge;
         let d_run = t_run * t_charge;
+        // If the best distance is not exceeded and a winning way has been found, end the search
         if d_run > d_best {
+            winning_way_found = true;
             count += 1;
+        } else if winning_way_found {
+            break;
         }
     }
     count
-}
-
-/// Solves AOC 2023 Day 06 Part 2.
-///
-/// ###
-fn solve_part2((_times, _distances): &(Vec<u64>, Vec<u64>)) -> usize {
-    0
 }
 
 #[cfg(test)]
@@ -111,9 +130,8 @@ mod test {
     #[test]
     fn test_day06_part2_actual() {
         let input = process_input_file(PROBLEM_INPUT_FILE);
-        let _solution = solve_part2(&input);
-        unimplemented!();
-        // assert_eq!("###", solution);
+        let solution = solve_part2(&input);
+        assert_eq!(27563421, solution);
     }
 
     /// Tests the Day 06 Part 1 solver method against the 01 test input.
@@ -122,5 +140,13 @@ mod test {
         let input = process_input_file("./input/test/day06_01.txt");
         let solution = solve_part1(&input);
         assert_eq!(288, solution);
+    }
+
+    /// Tests the Day 06 Part 2 solver method against the 01 test input.
+    #[test]
+    fn test_day06_part2_ex01() {
+        let input = process_input_file("./input/test/day06_01.txt");
+        let solution = solve_part2(&input);
+        assert_eq!(71503, solution);
     }
 }
