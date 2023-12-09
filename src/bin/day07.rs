@@ -97,9 +97,20 @@ fn solve_part1(input: &[(CardHand, usize)]) -> usize {
 
 /// Solves AOC 2023 Day 07 Part 2.
 ///
-/// ###
-fn solve_part2(_input: &[(CardHand, usize)]) -> usize {
-    0
+/// Determines the total winnings from the bets associated with the hands of cards, with
+/// jacks treated as wildcard jokers.
+fn solve_part2(input: &[(CardHand, usize)]) -> usize {
+    let mut hands_with_bets = input.to_vec();
+    for (hand, _) in hands_with_bets.iter_mut() {
+        hand.set_joker_wild(true);
+    }
+    hands_with_bets.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut total_winnings = 0;
+    for (i, (_, bet)) in hands_with_bets.iter().enumerate() {
+        let rank = i + 1;
+        total_winnings += rank * bet;
+    }
+    total_winnings
 }
 
 #[cfg(test)]
@@ -129,5 +140,13 @@ mod test {
         let input = process_input_file("./input/test/day07_01.txt");
         let solution = solve_part1(&input);
         assert_eq!(6440, solution);
+    }
+
+    /// Tests the Day 07 Part 2 solver method against the 01 test input.
+    #[test]
+    fn test_day07_part2_ex01() {
+        let input = process_input_file("./input/test/day07_01.txt");
+        let solution = solve_part2(&input);
+        assert_eq!(5905, solution);
     }
 }

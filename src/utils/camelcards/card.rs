@@ -1,3 +1,4 @@
+/// Represents the different cards that may be held in a hand.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Card {
     Two,
